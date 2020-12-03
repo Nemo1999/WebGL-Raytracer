@@ -9,7 +9,7 @@ function getGL(){
     return gl;
 }
 
-
+var startTime = new Date();
 
 async function tracerMain(){
     //fetch shader source
@@ -38,31 +38,29 @@ async function tracerMain(){
 	    ray11: gl.getUniformLocation(tracerProgram, 'ray11'),
 	    sphereCenterRadius: gl.getUniformLocation(tracerProgram, "sphereCenterRadius"),
 	    sphereMaterial: gl.getUniformLocation(tracerProgram, "sphereMaterial"),
-	    sphereColor: gl.getUniformLocation(tracerProgram, "sphereColor")
+	    sphereColor: gl.getUniformLocation(tracerProgram, "sphereColor"),
+	    lightPos: gl.getUniformLocation(tracerProgram, "lightPos"),
+	    timeSinceStart: gl.getUniformLocation(tracerProgram, "timeSinceStart"),
 	},
     };
 
     eye = {
 	pos: vec3.fromValues(0.0,0.0,0.0),
 	center: vec3.fromValues(0.0,0.0,-1.0),
-	up: vec3.fromValues(0.0,1.0,0.0)
+	up: vec3.fromValues(0.0,1.0,0.0),
     };
-
-    //set ray directions
-    const viewProjectionMatrix = getViewProjMat(gl,eye);
-    const r00 = getEyeRay(viewProjectionMatrix,eye,-1,-1);
-    const r01 = getEyeRay(viewProjectionMatrix,eye,-1,1);
-    const r10 = getEyeRay(viewProjectionMatrix,eye,1,-1);
-    const r11 = getEyeRay(viewProjectionMatrix,eye,1,1);
-
+    light = {
+	pos: vec3.fromValues(0.0,10.0,10.0),
+    };
+    
     //set sphere position and radius
-    var sphereCenterRadius = [0.0,-10.0,10.0,0.0,0.0,0.0,5.0,1.0];
+    var sphereCenterRadius = [0.0,-100.0,-10.0,100.0,0.0,1.0,-5.0,1.0];
     for(var i=0;i<8*4;i++){
 	sphereCenterRadius.push(Infinity);
     }
     
     //set sphere color 
-    var sphereColor = [0.5,0.7,1.0,1.0,0.3,0.3];
+    var sphereColor = [0.5,0.7,1.0,0.7,0.3,0.3];
     for(var i=0;i<8*3;i++){
 	sphereCenterRadius.push(0.0);
     }
@@ -71,13 +69,28 @@ async function tracerMain(){
     for(var i=0;i<8;i++){
 	sphereMaterial.push(0.0);
     }
+
     
+    setInterval(()=>{drawScene(gl, tracerInfo, eye, light, sphereCenterRadius, sphereColor, sphereMaterial)},1000);
+    
+}
+
+
+tracerMain();
+
+function drawScene(gl, tracerInfo, eye, light, sphereCenterRadius, sphereColor, sphereMaterial){
+    //set ray directions
+    const viewProjectionMatrix = getViewProjMat(gl,eye);
+    const r00 = getEyeRay(viewProjectionMatrix,eye,-1,-1);
+    const r01 = getEyeRay(viewProjectionMatrix,eye,-1,1);
+    const r10 = getEyeRay(viewProjectionMatrix,eye,1,-1);
+    const r11 = getEyeRay(viewProjectionMatrix,eye,1,1);
     //Tell WebGL to use the program when drawing
     gl.useProgram(tracerInfo.program);
 
     //bind vertex attribute to shader (simple square attribute with four corner)
     enableSquareVAO(gl,tracerInfo);
-    
+
     //Set the shader uniforms
     gl.uniform3fv(tracerInfo.uniformLocations.eye,eye.pos);
     gl.uniform3fv(tracerInfo.uniformLocations.ray00,r00);
@@ -87,7 +100,8 @@ async function tracerMain(){
     gl.uniform4fv(tracerInfo.uniformLocations.sphereCenterRadius,new Float32Array(sphereCenterRadius));
     gl.uniform3fv(tracerInfo.uniformLocations.sphereColor,sphereColor);
     gl.uniform1fv(tracerInfo.uniformLocations.sphereMaterial,sphereMaterial);    
-
+    gl.uniform3fv(tracerInfo.uniformLocations.lightPos,light.pos);
+    gl.uniform1fv(tracerInfo.uniformLocations.timeSinceStart, new Float32Array([(new Date() - startTime)*0.01]));
     //clear framebuffer
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clearDepth(1.0); // clear anyting
@@ -99,11 +113,8 @@ async function tracerMain(){
 	const vertextCount =4;
 	gl.drawArrays(gl.TRIANGLE_STRIP,offset,vertextCount);
     }
-    
 }
 
-
-tracerMain();
 function enableSquareVAO(gl, tracerInfo){
     //create a buffer for square's positions.
     const positionBuffer = gl.createBuffer();
@@ -157,7 +168,6 @@ const getViewProjMat = function (gl, eye){
 		     zFar);
     const viewMatrix = mat4.create();
     mat4.lookAt(viewMatrix,eye.pos,eye.center,eye.up);
-    console.log(viewMatrix);
     const ans = mat4.create();
     return mat4.multiply(ans,viewMatrix, projectionMatrix);
 }
@@ -167,7 +177,6 @@ function getEyeRay(matrix,eye, x, y){
     const inv = mat4.create();
     mat4.invert(inv,matrix)
     vec4.transformMat4(p0, vec4.fromValues(x, y, -1.0, 1.0),inv );
-    console.log(x,y,p0)
     const p1 = vec3.create();
     vec3.scale(p1, vec3.fromValues(p0[0],p0[1],p0[2]), (1.0/p0[3]));
     const ans = vec3.create();
