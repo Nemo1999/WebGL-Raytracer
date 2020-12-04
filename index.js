@@ -50,19 +50,25 @@ async function tracerMain(){
 	up: vec3.fromValues(0.0,1.0,0.0),
     };
     light = {
-	pos: vec3.fromValues(0.0,10.0,10.0),
+	pos: vec3.fromValues(10.0,10.0,10.0),
     };
     
     //set sphere position and radius
-    var sphereCenterRadius = [0.0,-100.0,-10.0,100.0,0.0,1.0,-5.0,1.0];
-    for(var i=0;i<8*4;i++){
+    var sphereCenterRadius = [0.0,-100.0,-10.0,100.0,
+			      0.0,1.0,-5.0,1.0,
+			      1.0,0.5,-4.0,0.7,
+			      -3.0,0.7,-6.0,0.7];
+    for(var i=0;i<6*4;i++){
 	sphereCenterRadius.push(Infinity);
     }
     
     //set sphere color 
-    var sphereColor = [0.5,0.7,1.0,0.7,0.3,0.3];
-    for(var i=0;i<8*3;i++){
-	sphereCenterRadius.push(0.0);
+    var sphereColor = [0.5,0.7,1.0,
+		       0.7,0.3,0.3,
+		       0.3,0.3,0.7,
+		       0.3,0.7,0.3];
+    for(var i=0;i<6*3;i++){
+	sphereColor.push(0.0);
     }
 
     var sphereMaterial = [Number.NEGATIVE_INFINITY,Number.NEGATIVE_INFINITY];

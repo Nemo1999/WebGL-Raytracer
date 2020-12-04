@@ -1,6 +1,6 @@
 // start of fragment shader
 #define numSphere 10
-#define maxDepth 2
+#define maxDepth 10
 precision highp float;
 uniform vec3 eye;
 varying vec3 initialRay;
@@ -115,7 +115,7 @@ void materialBounce( inout vec3 origin, inout vec3 dir, inout float surfaceLight
   }
   float shadow = computeShadow(hitPoint + epsilon * surfaceNormal, toLightDir);
   surfaceLight = ambient + ( (specular + diffuse) * shadow );
-  origin = hitPoint;
+  origin = hitPoint + epsilon * surfaceNormal;
 }
 
 vec3 findBackGround(vec3 origin, vec3 dir){
@@ -140,7 +140,7 @@ vec3 findColor(vec3  origin,vec3 dir ){
     float surfaceLight;
     if(t == inf){
       surfaceLight = 1.0;
-      hitObjColor = mix(vec3(1.0,1.0,1.0),vec3(0.5,0.7,1.0),(d.y+1.0)*0.5);
+      hitObjColor = findBackGround(o,d);
       breakEarly = true;
     }
     else{
