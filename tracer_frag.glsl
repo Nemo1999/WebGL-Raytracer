@@ -1,6 +1,6 @@
 // start of fragment shader
 #define numSphere 10
-#define maxDepth 10
+#define maxDepth 2
 precision highp float;
 uniform vec3 eye;
 varying vec3 initialRay;
@@ -16,7 +16,7 @@ uniform vec4 sphereCenterRadius[numSphere];
 
 // record the material of the sphere
 // -inf for diffuse material
-// -k for glass with refractive constant k (k>0)
+// -k for glass with refraction constant k (k>0)
 //  0 for mirror material  
 //  g for glossiness of mirror material (g = random noise magnitude added to the reflected ray)
 uniform float sphereMaterial[numSphere];
@@ -87,6 +87,15 @@ vec3 cosineWeightedDirection(float seed, vec3 normal){
   return normalize(normal + randomUnitDirection(seed));
 }
 
+//model reflectance for glass material 
+float reflectance(float cos_theta, float  refractionRatio){
+  // solution from https://raytracing.github.io/books/RayTracingInOneWeekend.html#dielectrics/schlickapproximation
+  float r0 = (1.0 - refractionRatio) / (1.0 + refractionRatio);
+  r0 = r0 * r0;
+  return r0 + (1.0 - r0) * pow(1.0 - cos_theta, 5.0);
+}
+
+
 //return new hit surface color
 //bounceCount is passed for seed (to get diffrent random value perbounce)
 void materialBounce( inout vec3 origin, inout vec3 dir, inout float surfaceLight, float t, float materialControl,vec4 centerRadius , int bounceCount ){
@@ -107,11 +116,38 @@ void materialBounce( inout vec3 origin, inout vec3 dir, inout float surfaceLight
     dir = cosineWeightedDirection(timeSinceStart + float(bounceCount), surfaceNormal);
     specular = 0.0;
   }
-  else{
+  else if(materialControl < 0.0){
     //glass
-    dir = reflectDir;
+    // solution from https://raytracing.github.io/books/RayTracingInOneWeekend.html#dielectrics/schlickapproximation
+    float reflectConstant = - materialControl;
+    bool inCircle =  length(centerRadius.xyz - origin) < (centerRadius.w + epsilon) && dot(centerRadius.xyz - origin, dir) > 0.0 ;
+    vec3 refractSurfaceNormal = (inCircle) ? - surfaceNormal : surfaceNormal;
+    float refractionRatio = (inCircle) ? reflectConstant : 1.0/reflectConstant;
+    float cos_theta = dot(normalize(-dir),refractSurfaceNormal); 
+    float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+    bool cannot_refract = refractionRatio * sin_theta > 1.0;
+    if(cannot_refract)//|| reflectance(cos_theta, refractionRatio ) > random(vec3(2.631,75.34,33.6534), timeSinceStart + float(bounceCount))){
+      dir = reflectDir;
+    else{
+      // glsl has builtin support for refraction!!!
+      dir = refract(normalize(dir), surfaceNormal, refractionRatio);
+    }
+    surfaceLight = 0.0;
+    origin = hitPoint + epsilon * surfaceNormal;
+    return ;
+  }
+  else if(materialControl == 0.0){
+    // mirror
+    dir = reflectDir ;
     float specularIndex = max(0.0, dot(reflectDir , toLightDir));
     specular = 2.0 * pow(specularIndex, 20.0);
+  }
+  else{
+    //glossy metal 
+    float glossiness = materialControl; // control the glossiness of the metal ( 0 for perfect mirror )
+    dir = reflectDir + glossiness * randomUnitDirection(timeSinceStart + float(bounceCount) + 25.3564) ;
+    float specularIndex = max(0.0, dot(reflectDir , toLightDir));
+    specular =  pow(specularIndex, 3.0);
   }
   float shadow = computeShadow(hitPoint + epsilon * surfaceNormal, toLightDir);
   surfaceLight = ambient + ( (specular + diffuse) * shadow );

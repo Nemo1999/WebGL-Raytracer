@@ -65,19 +65,19 @@ async function tracerMain(){
     //set sphere color 
     var sphereColor = [0.5,0.7,1.0,
 		       0.7,0.3,0.3,
-		       0.3,0.3,0.7,
-		       0.3,0.7,0.3];
+		       1.0,1.0,1.0,
+		       1.0,1.0,1.0];
     for(var i=0;i<6*3;i++){
 	sphereColor.push(0.0);
     }
 
-    var sphereMaterial = [Number.NEGATIVE_INFINITY,Number.NEGATIVE_INFINITY];
-    for(var i=0;i<8;i++){
+    var sphereMaterial = [Number.NEGATIVE_INFINITY,Number.NEGATIVE_INFINITY, -2.0, -0.5];
+    for(var i=0;i<6;i++){
 	sphereMaterial.push(0.0);
     }
 
     
-    setInterval(()=>{drawScene(gl, tracerInfo, eye, light, sphereCenterRadius, sphereColor, sphereMaterial)},1000);
+    setInterval(()=>{drawScene(gl, tracerInfo, eye, light, sphereCenterRadius, sphereColor, sphereMaterial)},10);
     
 }
 
