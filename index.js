@@ -1,138 +1,191 @@
-function getGL(){
-    const canvas = document.querySelector("#glCanvas");
-    // Initialize the GL context
-    const gl = canvas.getContext("webgl");
-    if(gl === null){
-	alert("Unable to initialize WebGL, your browser or machine may not support it");
-	return null ;
-    }
-    return gl;
-}
 
-var startTime = new Date();
+var gameState = new Object;
+gameState.startTime = new Date() ;
+var sceneData = new Object;
+
+var tracerProgram;
+var renderProgram;
 
 async function tracerMain(){
     //fetch shader source
-    var fetch_vert = fetch("tracer_vert.glsl").then(r => r.text());
-    var fetch_frag = fetch("tracer_frag.glsl").then(r => r.text());
+    var fetch_tracer_vert = fetch("tracer_vert.glsl").then(r => r.text());
+    var fetch_tracer_frag = fetch("tracer_frag.glsl").then(r => r.text());
+    var fetch_render_vert = fetch("render_vert.glsl").then(r => r.text());
+    var fetch_render_frag = fetch("render_frag.glsl").then(r => r.text());
 
     //get WebGL context
     const gl = getGL();
 
     //get shader source 
-    var tracerVertexSource = await fetch_vert; 
-    var tracerFragSource = await fetch_frag;
+    var tracerVertexSource = await fetch_tracer_vert; 
+    var tracerFragSource = await   fetch_tracer_frag;
+    var renderVertexSource = await fetch_render_vert; 
+    var renderFragSource = await   fetch_render_frag;
 
+    
     // compile and link shader source 
-    const tracerProgram = initShaderProgram(gl, tracerVertexSource, tracerFragSource);
-    const tracerInfo = {
-	program: tracerProgram,
-	attribLocations: {
-	    vertexPosition: gl.getAttribLocation(tracerProgram, 'vertex'),
-	},
-	uniformLocations: {
-	    eye: gl.getUniformLocation(tracerProgram, 'eye'),
-	    ray00: gl.getUniformLocation(tracerProgram, 'ray00'),
-	    ray01: gl.getUniformLocation(tracerProgram, 'ray01'),
-	    ray10: gl.getUniformLocation(tracerProgram, 'ray10'),
-	    ray11: gl.getUniformLocation(tracerProgram, 'ray11'),
-	    sphereCenterRadius: gl.getUniformLocation(tracerProgram, "sphereCenterRadius"),
-	    sphereMaterial: gl.getUniformLocation(tracerProgram, "sphereMaterial"),
-	    sphereColor: gl.getUniformLocation(tracerProgram, "sphereColor"),
-	    lightPos: gl.getUniformLocation(tracerProgram, "lightPos"),
-	    timeSinceStart: gl.getUniformLocation(tracerProgram, "timeSinceStart"),
-	},
-    };
-
-    eye = {
-	pos: vec3.fromValues(0.0,0.0,0.0),
-	center: vec3.fromValues(0.0,0.0,-1.0),
-	up: vec3.fromValues(0.0,1.0,0.0),
-    };
-    light = {
-	pos: vec3.fromValues(10.0,10.0,10.0),
-    };
+    tracerProgram = initShaderProgram(gl, tracerVertexSource, tracerFragSource);
+    renderProgram = initShaderProgram(gl, renderVertexSource, renderFragSource);
+    initSceneData(gl,sceneData);
+    initGameState(gameState);
     
-    //set sphere position and radius
-    var sphereCenterRadius = [0.0,-100.0,-10.0,100.0,
-			      0.0,1.0,-5.0,1.0,
-			      1.0,0.5,-4.0,0.7,
-			      -3.0,0.7,-6.0,0.7];
-    for(var i=0;i<6*4;i++){
-	sphereCenterRadius.push(Infinity);
-    }
-    
-    //set sphere color 
-    var sphereColor = [0.5,0.7,1.0,
-		       0.7,0.3,0.3,
-		       1.0,1.0,1.0,
-		       1.0,1.0,1.0];
-    for(var i=0;i<6*3;i++){
-	sphereColor.push(0.0);
-    }
-
-    var sphereMaterial = [Number.NEGATIVE_INFINITY,Number.NEGATIVE_INFINITY, -2.0, -0.5];
-    for(var i=0;i<6;i++){
-	sphereMaterial.push(0.0);
-    }
-
-    
-    setInterval(()=>{drawScene(gl, tracerInfo, eye, light, sphereCenterRadius, sphereColor, sphereMaterial)},10);
+    // clear screen;
+    clearFrameBuffer(gl);
+   
+    setInterval(()=>{render(gl, renderProgram, sceneData); update(gl,tracerProgram, gameState, sceneData); },500);
     
 }
 
 
-tracerMain();
+tracerMain()
 
-function drawScene(gl, tracerInfo, eye, light, sphereCenterRadius, sphereColor, sphereMaterial){
+function update(gl, tracerProgram, gameState, sceneData){
+    
     //set ray directions
-    const viewProjectionMatrix = getViewProjMat(gl,eye);
-    const r00 = getEyeRay(viewProjectionMatrix,eye,-1,-1);
-    const r01 = getEyeRay(viewProjectionMatrix,eye,-1,1);
-    const r10 = getEyeRay(viewProjectionMatrix,eye,1,-1);
-    const r11 = getEyeRay(viewProjectionMatrix,eye,1,1);
-    //Tell WebGL to use the program when drawing
-    gl.useProgram(tracerInfo.program);
+    gameState.viewProjectionMatrix = getViewProjMat(gl,gameState.eyePos, gameState.eyeCenter, gameState.eyeUp);
+    gameState.ray00 = getEyeRay(gameState.viewProjectionMatrix,gameState.eyePos,-1,-1);
+    gameState.ray01 = getEyeRay(gameState.viewProjectionMatrix,gameState.eyePos,-1,1);
+    gameState.ray10 = getEyeRay(gameState.viewProjectionMatrix,gameState.eyePos,1,-1);
+    gameState.ray11 = getEyeRay(gameState.viewProjectionMatrix,gameState.eyePos,1,1);
+    gameState.timeSinceStart = (new Date() - gameState.startTime)* 0.01;
+    gameState.textureWeight = sceneData.frameCount / (sceneData.frameCount + 1.0);
+    
+    gl.useProgram(tracerProgram);
+    // bind texture[0] to fragmentshader 
+    gl.bindTexture(gl.TEXTURE_2D, sceneData.textures[0]);
+    //bind fragmentshader output framebuffer
+    gl.bindFramebuffer(gl.FRAMEBUFFER, sceneData.framebuffer);
+    // bind framebuffer color data  to texture[1]
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, sceneData.textures[1], 0);
+    
+    enableSquareVAO(gl,tracerProgram);
 
-    //bind vertex attribute to shader (simple square attribute with four corner)
-    enableSquareVAO(gl,tracerInfo);
+    setUniforms(gl, tracerProgram, gameState);
+    
+    const offset = 0;
+    const vertextCount =4;
+    gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertextCount);
+    
 
-    //Set the shader uniforms
-    gl.uniform3fv(tracerInfo.uniformLocations.eye,eye.pos);
-    gl.uniform3fv(tracerInfo.uniformLocations.ray00,r00);
-    gl.uniform3fv(tracerInfo.uniformLocations.ray01,r01);
-    gl.uniform3fv(tracerInfo.uniformLocations.ray10,r10);
-    gl.uniform3fv(tracerInfo.uniformLocations.ray11,r11);    
-    gl.uniform4fv(tracerInfo.uniformLocations.sphereCenterRadius,new Float32Array(sphereCenterRadius));
-    gl.uniform3fv(tracerInfo.uniformLocations.sphereColor,sphereColor);
-    gl.uniform1fv(tracerInfo.uniformLocations.sphereMaterial,sphereMaterial);    
-    gl.uniform3fv(tracerInfo.uniformLocations.lightPos,light.pos);
-    gl.uniform1fv(tracerInfo.uniformLocations.timeSinceStart, new Float32Array([(new Date() - startTime)*0.01]));
+    sceneData.frameCount++;
+    sceneData.textures.reverse();
+}
+ 
+function render(gl, renderProgram, sceneData){
+    gl.useProgram(renderProgram);
+    gl.bindTexture(gl.TEXTURE_2D, sceneData.textures[0]);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    enableSquareVAO(gl,renderProgram);
+    const offset = 0;
+    const vertextCount =4;
+    gl.drawArrays(gl.TRIANGLE_STRIP,offset,vertextCount);
+}
+
+function initSceneData(gl, sceneData){
+    sceneData.framebuffer = gl.createFramebuffer();
+    // create textures
+    var type = gl.getExtension('OES_texture_float') ? gl.FLOAT : gl.UNSIGNED_BYTE;
+    sceneData.textures = [];
+    for(var i = 0; i < 2; i++) {
+	sceneData.textures.push(gl.createTexture());
+	gl.bindTexture(gl.TEXTURE_2D, sceneData.textures[i]);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, 1000, 700, 0, gl.RGB, type, null);
+    }
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    sceneData.frameCount = 0.0;
+}
+
+function initGameState(gameState){
+    gameState.eyePos = vec3.fromValues(0.0,0.0,0.0);
+    gameState.eyeCenter = vec3.fromValues(0.0,0.0,-1.0);
+    gameState.eyeUp = vec3.fromValues(0.0,1.0,0.0);
+
+    gameState.lightPos = vec3.fromValues(10.0,10.0,10.0);
+    gameState.lightSize = 0.5;
+    
+    //set sphere position and radius
+    gameState.sphereCenterRadius = [0.0,-100.0,-10.0,100.0,
+			      0.0,1.0,-5.0,1.0,
+			      0.5,0.3,-2.0,0.5,
+			      -3.0,0.7,-6.0,0.7];
+    for(var i=0;i<6*4;i++){
+	gameState.sphereCenterRadius.push(Infinity);
+    }
+    
+    //set sphere color 
+    gameState.sphereColor = [0.5,0.7,1.0,
+		       0.7,0.3,0.3,
+		       1.0,1.0,1.0,
+		       1.0,1.0,1.0];
+    for(var i=0;i<6*3;i++){
+	gameState.sphereColor.push(0.0);
+    }
+
+    gameState.sphereMaterial = [Number.NEGATIVE_INFINITY,Number.NEGATIVE_INFINITY, -2.3, -2.3];
+    for(var i=0;i<6;i++){
+	gameState.sphereMaterial.push(0.0);
+    }
+}
+
+
+function setUniforms(gl, program, data){
+    for(var name in data){
+	var value =  data[name];
+	var location = gl.getUniformLocation(program, name);
+	if(location == null) continue;
+	if(typeof(value) == 'number'){
+	    gl.uniform1f(location, value);
+	}
+	else if(value instanceof Array){
+	    if(value.length % 3 == 0)
+		gl.uniform3fv(location, value);
+	    else if( value.length % 4 == 0)
+		gl.uniform4fv(location, value);
+	    else
+		gl.uniform1fv(location, value);
+	    
+	}
+	else if(value instanceof Float32Array){
+	    if(value.length == 3)
+		gl.uniform3fv(location, value);
+	    else if(value.length == 4)
+		gl.uniform4fv(location, value);
+	    else
+	     {continue;}
+	}
+	else{
+	    {continue;}
+	}
+    }
+
+}
+
+// clear gl canvas(default framebuffer) if no framebuffer is bind
+function clearFrameBuffer(gl){
     //clear framebuffer
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clearDepth(1.0); // clear anyting
     gl.enable(gl.DEPTH_TEST); // Enable Depth Testing 
     gl.depthFunc(gl.LEQUAL);// Near things obscure far things    
     gl.clear(gl.COLOR_BUFFER_BIT| gl.DEPTH_BUFFER_BIT);
-    {
-	const offset = 0;
-	const vertextCount =4;
-	gl.drawArrays(gl.TRIANGLE_STRIP,offset,vertextCount);
-    }
 }
 
-function enableSquareVAO(gl, tracerInfo){
+// setup VAO for a single square in gl state machine
+function enableSquareVAO(gl, tracerProgram){
+    vertexPosition = gl.getAttribLocation(tracerProgram, 'vertex');
     //create a buffer for square's positions.
-    const positionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    const positions = [
+    const vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    const vertexes = [
 	-1.0, 1.0,
 	1.0,  1.0,
 	-1.0, -1.0,
 	1.0, -1.0,
     ];
     gl.bufferData(gl.ARRAY_BUFFER,
-		  new Float32Array(positions),
+		  new Float32Array(vertexes),
 		  gl.STATIC_DRAW);
     
     //Tell WebGL how to pull out the position from the position buffer to the
@@ -144,24 +197,23 @@ function enableSquareVAO(gl, tracerInfo){
 	const stride = 0;// how many bytes to get from one set of values to the next
 	const offset = 0;// how many bytes inside the buffer to start from;
 	
-	gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+	gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
 	gl.vertexAttribPointer(
-	    tracerInfo.attribLocations.vertexPosition,
+	    vertexPosition,
 	    numComponents,
 	    type,
 	    normalize,
 	    stride,
 	    offset
 	);
-	gl.enableVertexAttribArray(
-	    tracerInfo.attribLocations.vertexPosition);
+	gl.enableVertexAttribArray(vertexPosition);
     }
 
 }
 
 
 
-const getViewProjMat = function (gl, eye){
+const getViewProjMat = function (gl, eyePos, eyeCenter, eyeUp){
     const fieldOfView = 45 * Math.PI / 180;   // in radians
     const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
     const zNear = 0.1;
@@ -173,12 +225,12 @@ const getViewProjMat = function (gl, eye){
 		     zNear,
 		     zFar);
     const viewMatrix = mat4.create();
-    mat4.lookAt(viewMatrix,eye.pos,eye.center,eye.up);
+    mat4.lookAt(viewMatrix,eyePos,eyeCenter,eyeUp);
     const ans = mat4.create();
     return mat4.multiply(ans,viewMatrix, projectionMatrix);
 }
 
-function getEyeRay(matrix,eye, x, y){
+function getEyeRay(matrix,eyePos, x, y){
     const p0 = vec4.create();
     const inv = mat4.create();
     mat4.invert(inv,matrix)
@@ -186,7 +238,7 @@ function getEyeRay(matrix,eye, x, y){
     const p1 = vec3.create();
     vec3.scale(p1, vec3.fromValues(p0[0],p0[1],p0[2]), (1.0/p0[3]));
     const ans = vec3.create();
-    vec3.subtract(ans,p1,eye.pos);
+    vec3.subtract(ans,p1,eyePos);
     return ans;
 }
 
@@ -229,6 +281,13 @@ function loadShader(gl, type, source){
     return shader;
 }
 
-
-
-
+function getGL(){
+    const canvas = document.querySelector("#glCanvas");
+    // Initialize the GL context
+    const gl = canvas.getContext("webgl2");
+    if(gl === null){
+	alert("Unable to initialize WebGL, your browser or machine may not support it");
+	return null ;
+    }
+    return gl;
+}

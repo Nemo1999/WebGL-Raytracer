@@ -1,14 +1,16 @@
 // start of fragment shader
 #define numSphere 10
-#define maxDepth 2
+#define maxDepth 6
 precision highp float;
-uniform vec3 eye;
+uniform vec3 eyePos;
 varying vec3 initialRay;
-//uniform float textureWeight;
-//uniform sampler2D texture;
+
+uniform float textureWeight;
+uniform sampler2D texture;
 
 //light position
 uniform vec3 lightPos;
+uniform float lightSize;
 uniform float timeSinceStart;
 // record the position of the spheres
 // value of infinity  means the sphere should not be shown
@@ -24,7 +26,7 @@ uniform float sphereMaterial[numSphere];
 uniform vec3 sphereColor[numSphere];
 const float pi = 3.1415926535897932384626433836795028841971;
 const float inf = 1000000000000000.0;
-const float epsilon = 0.0001; 
+const float epsilon = 0.00001; 
 
 // find the intersection index of the given ray
 // t = inf means no intersection in the given direction
@@ -100,12 +102,13 @@ float reflectance(float cos_theta, float  refractionRatio){
 //bounceCount is passed for seed (to get diffrent random value perbounce)
 void materialBounce( inout vec3 origin, inout vec3 dir, inout float surfaceLight, float t, float materialControl,vec4 centerRadius , int bounceCount ){
   vec3 hitPoint = origin + t * dir;
-  vec3 toLightDir = normalize(lightPos - hitPoint);
+  vec3 lightPos_ = lightPos + lightSize * random(vec3(5423.324,865.34,8.43),timeSinceStart) * randomUnitDirection(timeSinceStart);
+  vec3 toLightDir = normalize(lightPos_ - hitPoint);
   
   // this surface Normal always assume the ray in comming from outside of the sphere
   vec3 surfaceNormal = (hitPoint - centerRadius.xyz ) / centerRadius.w;
   vec3 reflectDir = normalize(reflect(dir, surfaceNormal));
-
+  
   float specular; // set this according to material
   float diffuse = max(0.0, dot(surfaceNormal , toLightDir));
   float ambient = 0.3;
@@ -120,20 +123,23 @@ void materialBounce( inout vec3 origin, inout vec3 dir, inout float surfaceLight
     //glass
     // solution from https://raytracing.github.io/books/RayTracingInOneWeekend.html#dielectrics/schlickapproximation
     float reflectConstant = - materialControl;
-    bool inCircle =  length(centerRadius.xyz - origin) < (centerRadius.w + epsilon) && dot(centerRadius.xyz - origin, dir) > 0.0 ;
+    bool inCircle =  dot(surfaceNormal , dir) > 0.0 ;
     vec3 refractSurfaceNormal = (inCircle) ? - surfaceNormal : surfaceNormal;
-    float refractionRatio = (inCircle) ? reflectConstant : 1.0/reflectConstant;
-    float cos_theta = dot(normalize(-dir),refractSurfaceNormal); 
+    float refractionRatio = (inCircle) ? reflectConstant :  1.0/reflectConstant ;
+    float cos_theta = dot(normalize(-dir) , normalize(refractSurfaceNormal)); 
     float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
     bool cannot_refract = refractionRatio * sin_theta > 1.0;
-    if(cannot_refract)//|| reflectance(cos_theta, refractionRatio ) > random(vec3(2.631,75.34,33.6534), timeSinceStart + float(bounceCount))){
-      dir = reflectDir;
+    if(cannot_refract ){//|| reflectance(cos_theta, refractionRatio ) > random(vec3(200.631,745.34,363.6534), 109.4 * timeSinceStart + 36.8* float(bounceCount))){
+      dir = reflect(dir, refractSurfaceNormal);
+      origin = hitPoint + epsilon * refractSurfaceNormal;
+    }
     else{
       // glsl has builtin support for refraction!!!
-      dir = refract(normalize(dir), surfaceNormal, refractionRatio);
+      dir = refract(normalize(dir), refractSurfaceNormal, refractionRatio);
+      origin = hitPoint - epsilon * refractSurfaceNormal;
     }
-    surfaceLight = 0.0;
-    origin = hitPoint + epsilon * surfaceNormal;
+   
+    surfaceLight = 0.1 * (diffuse);
     return ;
   }
   else if(materialControl == 0.0){
@@ -190,13 +196,9 @@ vec3 findColor(vec3  origin,vec3 dir ){
 }
 
 void main(){
-  /*
-  float t = intersectSphere(eye, initialRay, vec3(0.0,0.0,-9.0), 2.0);
-  if(  t != inf )
-    gl_FragColor = vec4(1.0, 0.0, 0.0,1.0);//vec4(vec3((atan(t)/3.1415)+0.5),1.0);
-  else
-    gl_FragColor = vec4(mix(vec3(1.0,1.0,1.0),vec3(0.5,0.7,1.0),(initialRay.y+1.0)*0.5) , 1.0);
-  */
-  //gl_FragColor = vec4(mix(vec3(1.0,1.0,1.0),vec3(0.5,0.7,1.0),(random(vec3(3425.4,78.4352,2.5467), timeSinceStart))) , 1.0);
-  gl_FragColor = vec4(findColor(eye, initialRay),1.0);
+
+  
+  vec3 initialRayBlur = initialRay + 0.00000001 * randomUnitDirection(timeSinceStart); 
+  vec3 textureData = texture2D(texture, gl_FragCoord.xy / vec2(1000,700)).rgb;
+  gl_FragColor = vec4(mix(findColor(eyePos, initialRayBlur), textureData, textureWeight), 1.0);
 }
