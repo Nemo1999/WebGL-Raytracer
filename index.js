@@ -41,7 +41,7 @@ async function Main(){
 
 function update(gl, tracerProgram, gameState, sceneData){
     if(sceneData.frameCount > 1000) { return;}
-    console.log('frameCount = ',sceneData.frameCount)
+    //console.log('frameCount = ',sceneData.frameCount)
     //set ray directions
     gameState.viewProjectionMatrix = getViewProjMat(gl,gameState.eyePos, gameState.currentEyeCenter, gameState.eyeUp);
     gameState.ray00 = getEyeRay(gameState.viewProjectionMatrix,gameState.eyePos,-1,-1);
@@ -59,7 +59,7 @@ function update(gl, tracerProgram, gameState, sceneData){
     // bind framebuffer color data  to texture[1]
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, sceneData.textures[1], 0);
     
-    enableSquareVAO(gl,tracerProgram);
+    enableSquareVAO(gl, tracerProgram);
 
     setUniforms(gl, tracerProgram, gameState);
     
@@ -276,7 +276,7 @@ function loadShader(gl, type, source){
     return shader;
 }
 
-
+//get canvas dom element and attach mouse event handelers to canvas
 function getCanvas(){
     const canvas = document.querySelector("#glCanvas");
     function mouseEventHandler (e){ 
