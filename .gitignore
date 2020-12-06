@@ -5,3 +5,4 @@
 #.*#
 *.png
 #*#
+!result.png
