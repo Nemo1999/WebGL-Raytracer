@@ -198,7 +198,7 @@ vec3 findColor(vec3  origin,vec3 dir ){
 void main(){
 
   
-  vec3 initialRayBlur = initialRay + 0.00000001 * randomUnitDirection(timeSinceStart); 
+  vec3 initialRayBlur = initialRay + 0.001 * randomUnitDirection(timeSinceStart); 
   vec3 textureData = texture2D(texture, gl_FragCoord.xy / vec2(1000,700)).rgb;
   gl_FragColor = vec4(mix(findColor(eyePos, initialRayBlur), textureData, textureWeight), 1.0);
 }

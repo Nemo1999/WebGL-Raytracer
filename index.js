@@ -13,8 +13,11 @@ async function tracerMain(){
     var fetch_render_vert = fetch("render_vert.glsl").then(r => r.text());
     var fetch_render_frag = fetch("render_frag.glsl").then(r => r.text());
 
+    
+    
     //get WebGL context
-    const gl = getGL();
+    const canvas = getCanvas();
+    const gl = getGL(canvas);
 
     //get shader source 
     var tracerVertexSource = await fetch_tracer_vert; 
@@ -32,17 +35,21 @@ async function tracerMain(){
     // clear screen;
     clearFrameBuffer(gl);
    
-    setInterval(()=>{render(gl, renderProgram, sceneData); update(gl,tracerProgram, gameState, sceneData); },500);
-    
+    setInterval(()=>{update(gl,tracerProgram, gameState, sceneData); render(gl, renderProgram, sceneData); },100);
+
+    document.onmounsedown = function (event){
+	console.log('mouse pressed');
+    }
 }
 
 
 tracerMain()
 
 function update(gl, tracerProgram, gameState, sceneData){
-    
+    if(sceneData.frameCount > 1000) { return;}
+    console.log('frameCount = ',sceneData.frameCount)
     //set ray directions
-    gameState.viewProjectionMatrix = getViewProjMat(gl,gameState.eyePos, gameState.eyeCenter, gameState.eyeUp);
+    gameState.viewProjectionMatrix = getViewProjMat(gl,gameState.eyePos, gameState.currentEyeCenter, gameState.eyeUp);
     gameState.ray00 = getEyeRay(gameState.viewProjectionMatrix,gameState.eyePos,-1,-1);
     gameState.ray01 = getEyeRay(gameState.viewProjectionMatrix,gameState.eyePos,-1,1);
     gameState.ray10 = getEyeRay(gameState.viewProjectionMatrix,gameState.eyePos,1,-1);
@@ -100,33 +107,38 @@ function initSceneData(gl, sceneData){
 function initGameState(gameState){
     gameState.eyePos = vec3.fromValues(0.0,0.0,0.0);
     gameState.eyeCenter = vec3.fromValues(0.0,0.0,-1.0);
+    gameState.currentEyeCenter = vec3.fromValues(0.0,0.0,-1.0);
     gameState.eyeUp = vec3.fromValues(0.0,1.0,0.0);
 
-    gameState.lightPos = vec3.fromValues(10.0,10.0,10.0);
-    gameState.lightSize = 0.5;
+    gameState.lightPos = vec3.fromValues(20.0,20.0,20.0);
+    gameState.lightSize = 0.2;
     
     //set sphere position and radius
     gameState.sphereCenterRadius = [0.0,-100.0,-10.0,100.0,
-			      0.0,1.0,-5.0,1.0,
-			      0.5,0.3,-2.0,0.5,
-			      -3.0,0.7,-6.0,0.7];
-    for(var i=0;i<6*4;i++){
-	gameState.sphereCenterRadius.push(Infinity);
-    }
+				    0.0,0.9,-5.0,1.0,
+				    0.5,0.2,-2.0,0.5,
+				    -3.0,0.6,-6.0,0.7,
+				    -0.1,-0.25,-1.7,0.1,
+				    -1.7,0.15,-4.7,0.3,
+				    -0.6,0.10,-4.0,0.3,
+				    0.1,-0.27,-1.5,0.1,
+				    -0.7, -0.15, -1.5,0.2,
+				    1.5,  0.04, -3.0,0.3];
     
     //set sphere color 
     gameState.sphereColor = [0.5,0.7,1.0,
-		       0.7,0.3,0.3,
-		       1.0,1.0,1.0,
-		       1.0,1.0,1.0];
-    for(var i=0;i<6*3;i++){
-	gameState.sphereColor.push(0.0);
-    }
+			     0.7,0.3,0.3,
+			     1.0,1.0,1.0,
+			     1.0,1.0,1.0,
+			     0.5,0.5,0.5,
+			     0.4,0.4,0.4,
+			     0.3,0.6,0.7,
+			     0.3,0.3,0.7,//purple
+			     0.7,0.4,0.2,
+			     0.5,0.7,0.3];
 
-    gameState.sphereMaterial = [Number.NEGATIVE_INFINITY,Number.NEGATIVE_INFINITY, -2.3, -2.3];
-    for(var i=0;i<6;i++){
-	gameState.sphereMaterial.push(0.0);
-    }
+    gameState.sphereMaterial = [Number.NEGATIVE_INFINITY, 0.0 , -2.3, -2.3,0.0,0.0, 0.0 ,Number.NEGATIVE_INFINITY, 0.05 , 0.5 ];
+   
 }
 
 
@@ -227,7 +239,7 @@ const getViewProjMat = function (gl, eyePos, eyeCenter, eyeUp){
     const viewMatrix = mat4.create();
     mat4.lookAt(viewMatrix,eyePos,eyeCenter,eyeUp);
     const ans = mat4.create();
-    return mat4.multiply(ans,viewMatrix, projectionMatrix);
+    return mat4.multiply(ans,  projectionMatrix , viewMatrix );
 }
 
 function getEyeRay(matrix,eyePos, x, y){
@@ -281,8 +293,70 @@ function loadShader(gl, type, source){
     return shader;
 }
 
-function getGL(){
+function getCanvas(){
     const canvas = document.querySelector("#glCanvas");
+    function mouseEventHandler (e){ 
+	var cRect = canvas.getBoundingClientRect();        // Gets CSS pos, and width/height
+	var canvasX = Math.round(e.clientX - cRect.left);  // Subtract the 'left' of the canvas 
+	var canvasY = Math.round(e.clientY - cRect.top);   // from the X/Y positions to make  
+	//console.log(canvasX, canvasY , e.buttons);
+	if(e.buttons == 0){
+	    if(sceneData.mousePressed == 1){
+		const toCenter = vec3.create();
+		vec3.subtract(toCenter, gameState.currentEyeCenter, gameState.eyePos);
+		const toCenterNormal = vec3.create();
+		vec3.normalize(toCenterNormal,toCenter);
+		vec3.add(gameState.eyeCenter, toCenterNormal, gameState.eyePos);
+		sceneData.mousePressed = 0;
+		sceneData.frameCount = 0.0;
+	    }
+	    else{
+		sceneData.mousePressed = 0;
+	    }
+	}
+	if(e.buttons == 1){
+	    if(sceneData.mousePressed == 0){
+		sceneData.mouseDownX = canvasX;
+		sceneData.mouseDownY = canvasY;
+		sceneData.mousePressed = 1;
+	    }
+	    else{
+		dx =  - sceneData.mouseDownX + canvasX;
+		dy =  - sceneData.mouseDownY + canvasY;
+		const dummy = vec3.create();
+		const eyeDir = vec3.create();
+		vec3.subtract(eyeDir, gameState.eyeCenter, gameState.eyePos);
+		const rightDir = vec3.create();
+		vec3.cross(rightDir, eyeDir, gameState.eyeUp);
+		
+		vec3.add(gameState.currentEyeCenter,  gameState.eyeCenter,  vec3.scale(dummy, rightDir, -dx / 500 ));
+		
+		vec3.add(gameState.currentEyeCenter,  gameState.currentEyeCenter,  vec3.scale(dummy, gameState.eyeUp, dy / 700));
+		//console.log( gameState.currentEyeCenter);
+		sceneData.frameCount = 0.0;
+		
+		
+	    }
+	    
+	}
+    }
+
+    function scrollEventHandler(e){
+	const toCenter = vec3.create();
+	vec3.subtract(toCenter, gameState.currentEyeCenter, gameState.eyePos);
+	vec3.scale(toCenter, toCenter, e.deltaY * 0.001);
+	vec3.add(gameState.eyePos, gameState.eyePos , toCenter);
+	vec3.add(gameState.currentEyeCenter, gameState.currentEyeCenter , toCenter);
+	vec3.add(gameState.eyeCenter, gameState.eyeCenter, toCenter);
+	sceneData.frameCount = 0.0;
+    }
+    canvas.addEventListener("wheel",scrollEventHandler);
+    canvas.addEventListener("mousemove",mouseEventHandler);
+    return canvas;
+}
+
+
+function getGL(canvas){
     // Initialize the GL context
     const gl = canvas.getContext("webgl2");
     if(gl === null){
