@@ -48,18 +48,18 @@ float intersectSphere(vec3 origin, vec3 dir, vec3 center, float radius){
 // find intersection with multiple objects, return hitObjIndex and t 
 float intersectObjects(vec3 origin, vec3 dir, inout vec4 hitObjCenterRadius, inout float hitObjMaterial, inout vec3 hitObjColor){
   float tMin = inf;
-    for(int j=0;j < numSphere;j++){
-      //infinity radius means the sphere should not be drawn
-      if(sphereCenterRadius[j].w >=inf)continue;
-      float t = intersectSphere(origin, dir, sphereCenterRadius[j].xyz,sphereCenterRadius[j].w);
-      if(t < tMin) {
-	tMin = t;
-	hitObjCenterRadius= sphereCenterRadius[j];
-	hitObjColor = sphereColor[j];
-	hitObjMaterial = sphereMaterial[j];
-      }
+  for(int j=0;j < numSphere;j++){
+    //infinity radius means the sphere should not be drawn
+    if(sphereCenterRadius[j].w >=inf)continue;
+    float t = intersectSphere(origin, dir, sphereCenterRadius[j].xyz,sphereCenterRadius[j].w);
+    if(t < tMin) {
+      tMin = t;
+      hitObjCenterRadius= sphereCenterRadius[j];
+      hitObjColor = sphereColor[j];
+      hitObjMaterial = sphereMaterial[j];
     }
-    return tMin;
+  }
+  return tMin;
 }
 
 float computeShadow( vec3 origin, vec3 dir){
@@ -129,8 +129,8 @@ void materialBounce( inout vec3 origin, inout vec3 dir, inout float surfaceLight
     float cos_theta = dot(normalize(-dir) , normalize(refractSurfaceNormal)); 
     float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
     bool cannot_refract = refractionRatio * sin_theta > 1.0;
-    if(cannot_refract ){//|| reflectance(cos_theta, refractionRatio ) > random(vec3(200.631,745.34,363.6534), 109.4 * timeSinceStart + 36.8* float(bounceCount))){
-      dir = reflect(dir, refractSurfaceNormal);
+    if(cannot_refract || 0.00001 * reflectance(cos_theta, refractionRatio ) > 10.0 * random(vec3(0.631,0.34,0.4534), 109.4 * timeSinceStart + 36.8* float(bounceCount))){
+      dir = reflect(dir, refractSurfaceNormal) ;
       origin = hitPoint + epsilon * refractSurfaceNormal;
     }
     else{

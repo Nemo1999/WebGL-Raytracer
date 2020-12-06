@@ -71,7 +71,7 @@ function update(gl, tracerProgram, gameState, sceneData){
     sceneData.frameCount++;
     sceneData.textures.reverse();
 }
- 
+
 function render(gl, renderProgram, sceneData){
     gl.useProgram(renderProgram);
     gl.bindTexture(gl.TEXTURE_2D, sceneData.textures[0]);
@@ -132,7 +132,7 @@ function initGameState(gameState){
 			     0.5,0.7,0.3];
 
     gameState.sphereMaterial = [Number.NEGATIVE_INFINITY, 0.0 , -2.3, -2.3,0.0,0.0, 0.0 ,Number.NEGATIVE_INFINITY, 0.05 , 0.5 ];
-   
+    
 }
 
 
@@ -159,7 +159,7 @@ function setUniforms(gl, program, data){
 	    else if(value.length == 4)
 		gl.uniform4fv(location, value);
 	    else
-	     {continue;}
+	    {continue;}
 	}
 	else{
 	    {continue;}
