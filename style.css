@@ -1,0 +1,43 @@
+body, html {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+.container {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+	
+}
+
+.leftpane {
+    flex-grow: 1;
+    float: left;
+    background-color: white;
+    height: 70%;
+}
+.rightpane {
+    flex-grow: 1;
+    float: right;
+    background-color: white;
+    height: 70%;
+}
+
+.middlepane {
+    width: 1000px;
+    height: 100%;
+    float: none;
+    background-color: white;
+    border-collapse: collapse;
+}
+
+
+
+.toppane {
+  width: 100%;
+  height: 30%;
+  border-collapse: collapse;
+  background-color: #4da6ff;
+}

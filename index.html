@@ -2,15 +2,32 @@
 <html lang='en'>
   <head>
     <title>WebGL Demo</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"
-            integrity="sha512-zhHQR0/H5SEBL3Wn6yYSaTTZej12z0hVZKOv3TwCUXT1z5qeqGcXJLLrbERYRScEDDpYIJhPC1fk31gqR783iQ=="
-            crossorigin="anonymous" defer></script>
+    <script type="text/javascript"src="gl-matrix-min.js"></script>
     <script type="text/javascript" src="index.js" defer></script>
     <script id="tracer_vert" type="text/glsl" src="tracer_vert.glsl"></script>
     <script id="tracer_frag" type="text/glsl" src="tracer_frag.glsl"></script>
+    <link rel="stylesheet" href="style.css">
+
   </head>
   <body>
     
-    <canvas id="glCanvas" width="1000" height="700" style="display: block;margin-left : auto;margin-right : auto"></canvas>
+    <div class="container">
+      
+      <div class="leftpane"></div>
+      <div class="middlepane">
+	<h1>WebGL Raytracing DEMO</h1>
+	<canvas id="glCanvas" width="1000" height="700"></canvas>
+	<p  style="font-size:20px">Current result is highly Inspired by this 	<a style="font-size:20px" href="http://madebyevan.com/webgl-path-tracing/">work of evan</a> </p>
+</div>
+      <div class="rightpane">
+	<ul>
+	  <li><p  style="font-size:20px">The scene is computed continuously, it becomes smooth over time</p></li>
+	  <li><p  style="font-size:20px">Drag mouse to change perspective </p></li>
+	  <li><p  style="font-size:20px">Scroll mouse to move camera </p></li>
+	</ul>
+	
+
+      </div>
+    </div>
   </body>
 </html>

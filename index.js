@@ -1,12 +1,11 @@
-
 var gameState = new Object;
 gameState.startTime = new Date() ;
 var sceneData = new Object;
-
 var tracerProgram;
 var renderProgram;
+Main();
 
-async function tracerMain(){
+async function Main(){
     //fetch shader source
     var fetch_tracer_vert = fetch("tracer_vert.glsl").then(r => r.text());
     var fetch_tracer_frag = fetch("tracer_frag.glsl").then(r => r.text());
@@ -15,8 +14,9 @@ async function tracerMain(){
 
     
     
-    //get WebGL context
+    //get canvas, attach mouse event handelers
     const canvas = getCanvas();
+    //get WebGL context
     const gl = getGL(canvas);
 
     //get shader source 
@@ -29,21 +29,15 @@ async function tracerMain(){
     // compile and link shader source 
     tracerProgram = initShaderProgram(gl, tracerVertexSource, tracerFragSource);
     renderProgram = initShaderProgram(gl, renderVertexSource, renderFragSource);
-    initSceneData(gl,sceneData);
-    initGameState(gameState);
-    
-    // clear screen;
-    clearFrameBuffer(gl);
-   
-    setInterval(()=>{update(gl,tracerProgram, gameState, sceneData); render(gl, renderProgram, sceneData); },100);
 
-    document.onmounsedown = function (event){
-	console.log('mouse pressed');
-    }
+    //creat framebuffer and  textures
+    initSceneData(gl,sceneData);
+    //define position, radius, color, material, lighting, eye, of the scene 
+    initGameState(gameState);
+
+    setInterval(()=>{update(gl,tracerProgram, gameState, sceneData); render(gl, renderProgram, sceneData); },25);
 }
 
-
-tracerMain()
 
 function update(gl, tracerProgram, gameState, sceneData){
     if(sceneData.frameCount > 1000) { return;}
@@ -126,7 +120,7 @@ function initGameState(gameState){
 				    1.5,  0.04, -3.0,0.3];
     
     //set sphere color 
-    gameState.sphereColor = [0.5,0.7,1.0,
+    gameState.sphereColor = [0.2,0.3,0.2,
 			     0.7,0.3,0.3,
 			     1.0,1.0,1.0,
 			     1.0,1.0,1.0,
@@ -174,19 +168,9 @@ function setUniforms(gl, program, data){
 
 }
 
-// clear gl canvas(default framebuffer) if no framebuffer is bind
-function clearFrameBuffer(gl){
-    //clear framebuffer
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    gl.clearDepth(1.0); // clear anyting
-    gl.enable(gl.DEPTH_TEST); // Enable Depth Testing 
-    gl.depthFunc(gl.LEQUAL);// Near things obscure far things    
-    gl.clear(gl.COLOR_BUFFER_BIT| gl.DEPTH_BUFFER_BIT);
-}
-
 // setup VAO for a single square in gl state machine
-function enableSquareVAO(gl, tracerProgram){
-    vertexPosition = gl.getAttribLocation(tracerProgram, 'vertex');
+function enableSquareVAO(gl, shaderProgram){
+    vertexPosition = gl.getAttribLocation(shaderProgram, 'vertex');
     //create a buffer for square's positions.
     const vertexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
@@ -272,7 +256,6 @@ function initShaderProgram(gl,vsSource,fsSource){
     return shaderProgram;
 }
 
-//
 //create a shader of the given type, upload the source
 //and compiles it
 function loadShader(gl, type, source){
@@ -292,6 +275,7 @@ function loadShader(gl, type, source){
     
     return shader;
 }
+
 
 function getCanvas(){
     const canvas = document.querySelector("#glCanvas");
@@ -365,3 +349,4 @@ function getGL(canvas){
     }
     return gl;
 }
+
