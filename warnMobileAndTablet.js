@@ -4,7 +4,7 @@ window.mobileAndTabletCheck = function() {
   return check;
 };
 
-if(window.mobileAndTabletCheck()|| true){
+if(window.mobileAndTabletCheck()){
     if(confirm("This website is not tested for mobile and tablet, the computational cost may crash your browser, are you sure you still want to open it?")){
 	alert("good luck!!");
     }
