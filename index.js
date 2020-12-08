@@ -35,7 +35,21 @@ async function Main(){
     //define position, radius, color, material, lighting, eye, of the scene 
     initGameState(gameState);
 
-    setInterval(()=>{update(gl,tracerProgram, gameState, sceneData); render(gl, renderProgram, sceneData); },25);
+    const fpsElem = document.querySelector("#fps");
+    let then = 0;
+    function updateAndRender(now) {
+	now *= 0.001;                          // convert to seconds
+	const deltaTime = now - then;          // compute time since last frame
+	then = now;                            // remember time for next frame
+	const fps = 1 / deltaTime;             // compute frames per second
+	fpsElem.textContent = fps.toFixed(1);  // update fps display
+	update(gl,tracerProgram, gameState, sceneData);
+	render(gl,renderProgram, sceneData);
+	requestAnimationFrame(updateAndRender);
+    }
+    requestAnimationFrame(updateAndRender);
+    //setInterval(()=>{update(gl,tracerProgram, gameState, sceneData); render(gl, renderProgram, sceneData); }, deltaT);
+    //console.log("current framrate = ", 1000/(deltaT));
 }
 
 
