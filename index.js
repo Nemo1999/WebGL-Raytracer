@@ -340,6 +340,7 @@ function getCanvas(){
     }
 
     function scrollEventHandler(e){
+	e.preventDefault();
 	const toCenter = vec3.create();
 	vec3.subtract(toCenter, gameState.currentEyeCenter, gameState.eyePos);
 	vec3.scale(toCenter, toCenter, e.deltaY * 0.001);
